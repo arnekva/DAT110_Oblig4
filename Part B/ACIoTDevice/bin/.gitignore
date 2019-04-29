@@ -1,1 +1,6 @@
-/no/
+/.classpath
+/.idea/
+/.project
+/.settings/
+/ACIoTDevice.iml
+/libs/
