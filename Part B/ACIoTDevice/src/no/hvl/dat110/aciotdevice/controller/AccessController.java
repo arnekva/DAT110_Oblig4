@@ -1,5 +1,8 @@
 package no.hvl.dat110.aciotdevice.controller;
 
+import java.io.IOException;
+import java.net.UnknownHostException;
+
 import no.hvl.dat110.aciotdevice.client.AccessCode;
 import no.hvl.dat110.aciotdevice.client.RestClient;
 import no.hvl.dat110.aciotdevice.pins.Wiring;
@@ -110,7 +113,7 @@ public class AccessController extends MicroController {
 		printstate();
 	}
 
-	void loop() {
+	void loop() throws UnknownHostException, IOException {
 
 		int pirsensor = digitalRead(Wiring.PIR);
 		int btn2 = digitalRead(Wiring.PUSHBTN2);
@@ -129,104 +132,109 @@ public class AccessController extends MicroController {
 			}
 		}
 
-		switch (state) {
+		try {
+			switch (state) {
 
-		case LOCKED:
+			case LOCKED:
 
-			if (pirsensor == HIGH) {
-				setstate(WAIT1P);
-				setleds(LOW, HIGH, LOW);
+				if (pirsensor == HIGH) {
+					setstate(WAIT1P);
+					setleds(LOW, HIGH, LOW);
 
-			}
-			break;
+				}
+				break;
 
-		case WAIT1P:
-			if ((btn1 == HIGH) || (btn2 == HIGH)) {
-				blink(Wiring.YELLOWLED);
+			case WAIT1P:
+				if ((btn1 == HIGH) || (btn2 == HIGH)) {
+					blink(Wiring.YELLOWLED);
 
-				if (btn1 == HIGH) {
-					firstpressed = 1;
+					if (btn1 == HIGH) {
+						firstpressed = 1;
+					}
+
+					if (btn2 == HIGH) {
+						firstpressed = 2;
+					}
+
+					setstate(WAIT2P);
+
 				}
 
-				if (btn2 == HIGH) {
-					firstpressed = 2;
+				break;
+
+			case WAIT2P:
+				if ((btn1 == HIGH) || (btn2 == HIGH)) {
+					blink(Wiring.YELLOWLED);
+
+					if (btn1 == HIGH) {
+						secondpressed = 1;
+					}
+
+					if (btn2 == HIGH) {
+						secondpressed = 2;
+					}
+
+					setstate(CHECKING);
+
+				}
+				break;
+
+			case CHECKING:
+
+				if (netmode == 1) {
+
+					// get the recent access code before checking
+					AccessCode newcode = client.doGetAccessCode();
+
+					if (newcode != null) {
+						code = newcode.getAccesscode();
+						Serial.println("UPDATING CODE");
+					}
 				}
 
-				setstate(WAIT2P);
+				if ((firstpressed == code[0]) && (secondpressed == code[1])) {
+					setstate(UNLOCKED);
+				} else {
+					blink(Wiring.REDLED);
+					setleds(HIGH, LOW, LOW);
+					setstate(LOCKED);
 
-			}
+					if (netmode == 1) {
+						client.doPostAccessEntry("ACCESS DENIED");
+					}
 
-			break;
-
-		case WAIT2P:
-			if ((btn1 == HIGH) || (btn2 == HIGH)) {
-				blink(Wiring.YELLOWLED);
-
-				if (btn1 == HIGH) {
-					secondpressed = 1;
 				}
 
-				if (btn2 == HIGH) {
-					secondpressed = 2;
+				firstpressed = 0;
+				secondpressed = 0;
+
+				break;
+
+			case UNLOCKED:
+				blink(Wiring.GREENLED);
+				setleds(LOW, LOW, HIGH);
+
+				if (netmode == 1) {
+					client.doPostAccessEntry("UNLOCKED");
 				}
 
-				setstate(CHECKING);
+				delay(5000);
 
-			}
-			break;
-
-		case CHECKING:
-
-			if (netmode == 1) {
-
-				// get the recent access code before checking
-				AccessCode newcode = client.doGetAccessCode();
-
-				if (newcode != null) {
-					code = newcode.getAccesscode();
-					Serial.println("UPDATING CODE");
+				if (netmode == 1) {
+					client.doPostAccessEntry("LOCKED");
 				}
-			}
 
-			if ((firstpressed == code[0]) && (secondpressed == code[1])) {
-				setstate(UNLOCKED);
-			} else {
 				blink(Wiring.REDLED);
 				setleds(HIGH, LOW, LOW);
 				setstate(LOCKED);
+				break;
 
-				if (netmode == 1) {
-					client.doPostAccessEntry("ACCESS DENIED");
-				}
-
+			default:
+				break;
 			}
-
-			firstpressed = 0;
-			secondpressed = 0;
-
-			break;
-
-		case UNLOCKED:
-			blink(Wiring.GREENLED);
-			setleds(LOW, LOW, HIGH);
-
-			if (netmode == 1) {
-				client.doPostAccessEntry("UNLOCKED");
-			}
-
-			delay(5000);
-
-			if (netmode == 1) {
-				client.doPostAccessEntry("LOCKED");
-			}
-
-			blink(Wiring.REDLED);
-			setleds(HIGH, LOW, LOW);
-			setstate(LOCKED);
-			break;
-
-		default:
-			break;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 }

@@ -1,5 +1,8 @@
 package no.hvl.dat110.aciotdevice.controller;
 
+import java.io.IOException;
+import java.net.UnknownHostException;
+
 import no.hvl.dat110.aciotdevice.pins.Constants;
 import no.hvl.dat110.aciotdevice.pins.IOPins;
 
@@ -19,7 +22,7 @@ public abstract class MicroController extends Thread {
 
 	abstract void setup ();
 	
-	abstract void loop ();
+	abstract void loop () throws UnknownHostException, IOException;
 	
 	protected void pinMode(int pin,int pinmode) {
 		// not really used in the current implementation
@@ -56,7 +59,15 @@ public abstract class MicroController extends Thread {
 		
 		while (true) {
 			
-			loop();
+			try {
+				loop();
+			} catch (UnknownHostException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			Thread.yield();
 		}
 	}
